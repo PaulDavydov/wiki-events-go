@@ -2,29 +2,33 @@ package main
 
 import (
 	"context"
+	"github.com/r3labs/sse/v2"
 	"github.com/segmentio/kafka-go"
 	"log"
-	"time"
 )
 
+const (
+	url         = "https://stream.wikimedia.org/v2/stream/recentchange"
+	topic       = "wiki-events"
+	parition    = 5
+	kafkaServer = "localhost:9092"
+	groudId     = "wikiEvents"
+)
+
+type application struct{}
+
 func main() {
-
-	conn, err := kafka.DialLeader(context.Background(), "tcp", "localhost:9092", "demo-go", 0)
+	app := &application{}
+	w, err := app.createKafkaWriter(topic, kafkaServer)
 	if err != nil {
-		log.Fatal("failed to dial leader: ", err)
+		log.Fatal("Your writer failed to start...")
 	}
+	defer w.Close()
 
-	conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	_, err = conn.WriteMessages(
-		kafka.Message{Value: []byte("one!")},
-		kafka.Message{Value: []byte("two!")},
-		kafka.Message{Value: []byte("three!")},
-	)
-	if err != nil {
-		log.Fatal("failed to write messages: ", err)
-	}
+	client := app.startSSE(url)
 
-	if err := conn.Close(); err != nil {
-		log.Fatal("failed to close writer: ", err)
-	}
+	client.SubscribeRaw(func(msg *sse.Event) {
+		err = w.WriteMessages(context.Background(), kafka.Message{Key: []byte(groudId), Value: []byte(msg.Data)})
+		log.Printf("Logger info: %#v ||| Message: %s", w.Logger, msg.Data)
+	})
 }
