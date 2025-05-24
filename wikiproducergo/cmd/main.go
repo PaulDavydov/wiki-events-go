@@ -21,7 +21,7 @@ func main() {
 		Group:     "wikiEvents",
 	}
 
-	w, err := app.createKafkaWriter(pConfig.Topic, pConfig.Server)
+	w, err := app.createKafkaWriter(pConfig.Server, pConfig.Topic)
 	if err != nil {
 		log.Fatal("Your writer failed to start...")
 	}
@@ -31,6 +31,6 @@ func main() {
 
 	client.SubscribeRaw(func(msg *sse.Event) {
 		err = w.WriteMessages(context.Background(), kafka.Message{Key: []byte(pConfig.Group), Value: []byte(msg.Data)})
-		log.Printf("Logger info: %#v ||| Message: %s", w.Addr, msg.Data)
+		log.Printf("Logger info: %#v ||| Message: %s", w.Topic, msg.Data)
 	})
 }
